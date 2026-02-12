@@ -1,0 +1,50 @@
+name: Multi-Platform Build Bot
+
+on: [push] # 只要你推送代码，三台云端电脑就同时开工
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    # 策略矩阵：一次性开启三套环境
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+        include:
+          - os: windows-latest
+            artifact_name: MathGame-Windows.exe
+            path: dist/mathgame-9.exe
+          - os: ubuntu-latest
+            artifact_name: MathGame-Linux-ELF
+            path: dist/mathgame-9
+          - os: macos-latest
+            artifact_name: MathGame-MacOS
+            path: dist/mathgame-9
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Build Executable
+        shell: bash
+        run: |
+          uv venv
+          # 根据不同系统激活环境
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            source .venv/Scripts/activate
+          else
+            source .venv/bin/activate
+          fi
+          uv pip install pyinstaller
+          # 执行打包（保留控制台以进行 input 交互）
+          pyinstaller --onefile mathgame-9.py
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.path }}
